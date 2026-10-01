@@ -12,17 +12,32 @@
     .title { color: #0d6efd; font-size: 20px; font-weight: bold; margin-bottom: 4px; }
     .sub { font-size: 13px; color: #6c757d; margin-bottom: 12px; }
     
-    .input-group { text-align: left; margin-bottom: 10px; }
+    .input-group { text-align: left; margin-bottom: 12px; }
     .input-group label { display: block; font-size: 14px; font-weight: bold; color: #333; margin-bottom: 4px; }
     .input-group input { 
       width: 100%; 
-      padding: 10px 12px; 
+      padding: 11px 12px; 
       border: 1.5px solid #ced4da; 
       border-radius: 8px; 
       font-size: 15px; 
       outline: none;
+      transition: all 0.2s ease;
+      background-color: #fff;
     }
-    .input-group input:focus { border-color: #0d6efd; }
+    .input-group input:focus { border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,0.15); }
+
+    /* LỚP BÁO LỖI NỔI BẬT DỄ NHẬN BIẾT */
+    .input-error { 
+      border: 2px solid #dc3545 !important; 
+      background-color: #fff0f0 !important; 
+      animation: shake 0.3s ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
 
     .btn-mic { 
       width: 90px; 
@@ -61,6 +76,7 @@
       resize: vertical; 
       background-color: #fafafa;
       color: #212529;
+      transition: all 0.2s ease;
     }
     .txt-area:focus { border-color: #0d6efd; outline: none; background-color: #fff; }
     
@@ -77,7 +93,6 @@
   <div class="title">HÒM THƯ GÓP Ý GIỌNG NÓI</div>
   <div class="sub">Ban Điều hành Ấp Hưng Phú tiếp nhận 24/7</div>
 
-  <!-- BỔ SUNG 2 TRƯỜNG THÔNG TIN HỌ TÊN VÀ SỐ ĐIỆN THOẠI -->
   <div class="input-group">
     <label for="txtName">👤 Họ và tên cử tri (*):</label>
     <input type="text" id="txtName" placeholder="Nhập đầy đủ họ và tên...">
@@ -118,24 +133,34 @@
   const txtName = document.getElementById('txtName');
   const txtPhone = document.getElementById('txtPhone');
 
+  // TỰ ĐỘNG XÓA MÀU LỖI KHẢI CỬ TRI BẮT ĐẦU NHẬP LẠI
+  txtName.oninput = function() { this.classList.remove('input-error'); };
+  txtPhone.oninput = function() { this.classList.remove('input-error'); };
+  txtResult.oninput = function() { 
+    this.classList.remove('input-error');
+    finalTranscript = txtResult.value;
+    capNhatDemKyTu();
+  };
+
   function phatGiongNoi(text, callback) {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'vi-VN';
-      utterance.rate = 0.9;
+      utterance.rate = 0.85;
+      utterance.pitch = 1.0;
 
-      let hasRunCallback = false;
-      const safeCallback = () => {
-        if (!hasRunCallback) {
-          hasRunCallback = true;
+      let hasExecuted = false;
+      const doCallback = () => {
+        if (!hasExecuted) {
+          hasExecuted = true;
           if (callback) callback();
         }
       };
 
-      utterance.onend = safeCallback;
-      utterance.onerror = safeCallback;
-      setTimeout(safeCallback, 3500);
+      utterance.onend = function() { doCallback(); };
+      utterance.onerror = function() { doCallback(); };
 
       window.speechSynthesis.speak(utterance);
     } else {
@@ -293,22 +318,18 @@
   }
 
   btnMic.onclick = handleMicToggle;
-  txtResult.oninput = function() {
-    finalTranscript = txtResult.value;
-    capNhatDemKyTu();
-  };
 
   function xoaNoiDung() {
     if (confirm("Quý cử tri có muốn xóa hết chữ để nói lại từ đầu không?")) {
       finalTranscript = '';
       txtResult.value = '';
+      txtResult.classList.remove('input-error');
       capNhatDemKyTu();
       txtStatus.innerText = "Đã xóa. Chạm vào Micro màu đỏ để BẮT ĐẦU trình bày lại.";
       txtStatus.style.color = "#0d6efd";
     }
   }
 
-  // HÀM KIỂM TRA ĐỊNH DẠNG SỐ ĐIỆN THOẠI VIỆT NAM
   function isKiemTraSdt(phone) {
     const vnf_regex = /^(03|05|07|08|09)+([0-9]{8})$/;
     return vnf_regex.test(phone);
@@ -319,9 +340,16 @@
     const phoneVal = txtPhone.value.trim();
     const contentVal = txtResult.value.trim();
 
-    // KIỂM TRA ĐIỀU KIỆN HỌ TÊN VÀ SỐ ĐIỆN THOẠI
+    // Reset màu lỗi cũ
+    txtName.classList.remove('input-error');
+    txtPhone.classList.remove('input-error');
+    txtResult.classList.remove('input-error');
+
+    // 1. KIỂM TRA ĐIỀU KIỆN HỌ TÊN VÀ SỐ ĐIỆN THOẠI
     if (!nameVal || !phoneVal || !isKiemTraSdt(phoneVal)) {
-      // 1. PHÁT ÂM THANH CẢNH BÁO
+      if (!nameVal) txtName.classList.add('input-error');
+      if (!phoneVal || !isKiemTraSdt(phoneVal)) txtPhone.classList.add('input-error');
+
       phatGiongNoi("Yêu cầu quý cử tri nhập họ tên và số điện thoại", function() {
         if (!nameVal) {
           alert("Yêu cầu quý cử tri nhập đầy đủ Họ và tên!");
@@ -334,11 +362,12 @@
           txtPhone.focus();
         }
       });
-      return; // CHẶN KHÔNG CHO GỬI
+      return;
     }
 
-    // KIỂM TRA NỘI DUNG PHẢN ÁNH
+    // 2. KIỂM TRA NỘI DUNG PHẢN ÁNH
     if (!contentVal) {
+      txtResult.classList.add('input-error');
       phatGiongNoi("Chưa có nội dung, xin quý cử tri bấm nút micro để nói trước", function() {
         alert("Chưa có nội dung! Quý cử tri vui lòng chạm nút Micro màu đỏ để trình bày trước.");
       });
@@ -355,7 +384,7 @@
       btnMic.classList.remove('active');
     }
 
-    // ĐÓNG GÓI DỮ LIỆU CẢ HỌ TÊN, SĐT VÀ NỘI DUNG
+    // GỬI DỮ LIỆU
     const formData = new URLSearchParams();
     formData.append('name', nameVal);
     formData.append('phone', phoneVal);
@@ -371,7 +400,6 @@
     txtStatus.innerText = "✅ Đã gửi phản ánh thành công!";
     txtStatus.style.color = "#198754";
 
-    // NÓI CÂU CẢM ƠN SAU KHI GỬI THÀNH CÔNG
     phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị", function() {
       alert("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị!");
       
