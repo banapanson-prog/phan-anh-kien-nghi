@@ -95,15 +95,24 @@
   // HÀM PHÁT GIỌNG NÓI TIẾNG VIỆT
   function phatGiongNoi(text, callback) {
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Dừng câu nói trước nếu có
+      window.speechSynthesis.cancel(); // Dừng tất cả âm thanh cũ
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'vi-VN';
-      utterance.rate = 0.9; // Tốc độ nói vừa phải, dễ nghe cho người lớn tuổi
+      utterance.rate = 0.9; // Tốc độ đọc chậm rãi, rõ ràng
 
-      if (callback) {
-        utterance.onend = callback;
-        utterance.onerror = callback; // Nếu lỗi âm thanh vẫn tiếp tục luồng
-      }
+      let hasRunCallback = false;
+      const safeCallback = () => {
+        if (!hasRunCallback) {
+          hasRunCallback = true;
+          if (callback) callback();
+        }
+      };
+
+      utterance.onend = safeCallback;
+      utterance.onerror = safeCallback;
+
+      // Giới hạn thời gian tối đa để đảm bảo luôn chạy callback nếu trình duyệt không báo sự kiện onend
+      setTimeout(safeCallback, 3500);
 
       window.speechSynthesis.speak(utterance);
     } else {
@@ -201,7 +210,7 @@
       txtStatus.innerText = "🔊 Mời quý cử tri phát biểu...";
       txtStatus.style.color = "#0d6efd";
 
-      // Phát loa "Mời quý cử tri phát biểu", phát xong thì tự động bật Micro
+      // Phát loa trước, sau đó mới bật Micro thu âm
       phatGiongNoi("Mời quý cử tri phát biểu", function() {
         try {
           finalTranscript = txtResult.value.trim();
@@ -238,8 +247,9 @@
   function guiPhanAnh() {
     const val = txtResult.value.trim();
     if (!val) {
-      phatGiongNoi("Chưa có nội dung, xin quý cử tri bấm nút micro để nói trước");
-      alert("Chưa có nội dung! Quý cử tri vui lòng chạm nút Micro màu đỏ để trình bày trước.");
+      phatGiongNoi("Chưa có nội dung, xin quý cử tri bấm nút micro để nói trước", function() {
+        alert("Chưa có nội dung! Quý cử tri vui lòng chạm nút Micro màu đỏ để trình bày trước.");
+      });
       return;
     }
 
@@ -247,7 +257,7 @@
     btnSend.disabled = true;
     btnSend.innerText = "⏳ ĐANG GỬI PHẢN ÁNH...";
 
-    // Tắt Micro nếu đang bật
+    // Tắt Micro nếu đang thu âm
     if (isRecording) {
       isRecording = false;
       recognition.stop();
@@ -257,16 +267,20 @@
     const formData = new URLSearchParams();
     formData.append('content', val);
 
+    // Gửi dữ liệu về Google Sheets
     fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formData.toString()
-    })
-    .then(() => {
-      // Phát loa phản hồi và hiện thông báo
-      phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị");
-      
+    });
+
+    // Cập nhật trạng thái chữ trên màn hình ngay lập tức
+    txtStatus.innerText = "✅ Đã gửi phản ánh thành công!";
+    txtStatus.style.color = "#198754";
+
+    // PHÁT ÂM THANH CẢM ƠN TRƯỚC -> NÓI XONG MỚI BẬT KHUNG CẢNH BÁO ALERT
+    phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị", function() {
       alert("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị!");
       
       finalTranscript = '';
@@ -275,16 +289,7 @@
       btnSend.disabled = false;
       btnSend.innerText = "GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP";
       txtStatus.innerText = "Chạm vào Micro màu đỏ để BẮT ĐẦU nói";
-    })
-    .catch(error => {
-      phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị");
-      alert("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị!");
-      finalTranscript = '';
-      txtResult.value = "";
-      capNhatDemKyTu();
-      btnSend.disabled = false;
-      btnSend.innerText = "GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP";
-      txtStatus.innerText = "Chạm vào Micro màu đỏ để BẮT ĐẦU nói";
+      txtStatus.style.color = "#0d6efd";
     });
   }
 </script>
