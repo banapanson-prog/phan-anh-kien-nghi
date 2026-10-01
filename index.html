@@ -68,7 +68,7 @@
   <button id="btnMic" class="btn-mic" type="button">🎙️</button>
   <div id="txtStatus" class="status">Chạm vào Micro màu đỏ để BẮT ĐẦU nói</div>
 
-  <textarea id="txtResult" class="txt-area" placeholder="Nội dung trình bày của bà con sẽ tự động chuyển thành văn bản và hiển thị đầy đủ ở đây..."></textarea>
+  <textarea id="txtResult" class="txt-area" placeholder="Nội dung trình bày của cử tri sẽ tự động chuyển thành văn bản và hiển thị ở đây..."></textarea>
   
   <div class="toolbar">
     <span id="txtCount" class="note-length">Đã nhập: 0 ký tự</span>
@@ -79,7 +79,7 @@
 </div>
 
 <script>
-  // DÁN LINK APPS SCRIPT MỚI CỦA BOSS VÀO GIỮA 2 DẤU NGOẶC KÉP Ở DƯỚI:
+  // DÁN LINK APPS SCRIPT CỦA BOSS VÀO GIỮA 2 DẤU NGOẶC KÉP Ở DƯỚI:
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZiyo8xW_q56L59cPztqf9QWhuyBPY6mwKINZ_w0qWCa4f-WaRUntc5OgOnTnIA8jG/exec";
 
   let recognition = null;
@@ -91,6 +91,25 @@
   const txtStatus = document.getElementById('txtStatus');
   const txtResult = document.getElementById('txtResult');
   const txtCount = document.getElementById('txtCount');
+
+  // HÀM PHÁT GIỌNG NÓI TIẾNG VIỆT
+  function phatGiongNoi(text, callback) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Dừng câu nói trước nếu có
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = 0.9; // Tốc độ nói vừa phải, dễ nghe cho người lớn tuổi
+
+      if (callback) {
+        utterance.onend = callback;
+        utterance.onerror = callback; // Nếu lỗi âm thanh vẫn tiếp tục luồng
+      }
+
+      window.speechSynthesis.speak(utterance);
+    } else {
+      if (callback) callback();
+    }
+  }
 
   function chuanHoaVanBan(text) {
     if (!text) return '';
@@ -120,7 +139,7 @@
       recognition.onstart = function() {
         isRecording = true;
         btnMic.classList.add('active');
-        txtStatus.innerText = "🔴 ĐANG NGHE BÀ CON TRÌNH BÀY... (Chạm Micro để DỪNG)";
+        txtStatus.innerText = "🔴 ĐANG NGHE CỬ TRI TRÌNH BÀY... (Chạm Micro để DỪNG)";
         txtStatus.style.color = "#198754";
       };
 
@@ -160,7 +179,7 @@
         } else {
           btnMic.classList.remove('active');
           if (txtResult.value.trim() !== "") {
-            txtStatus.innerText = "✅ Đã ghi xong! Bà con kiểm tra nội dung và bấm Gửi.";
+            txtStatus.innerText = "✅ Đã ghi xong! Quý cử tri kiểm tra nội dung và bấm Gửi.";
             txtStatus.style.color = "#0d6efd";
           }
         }
@@ -179,18 +198,23 @@
     if (!initSpeech()) return;
 
     if (!isRecording) {
-      try {
-        finalTranscript = txtResult.value.trim();
-        if (finalTranscript !== '' && !finalTranscript.endsWith('.')) {
-          finalTranscript += '. ';
+      txtStatus.innerText = "🔊 Mời quý cử tri phát biểu...";
+      txtStatus.style.color = "#0d6efd";
+
+      // Phát loa "Mời quý cử tri phát biểu", phát xong thì tự động bật Micro
+      phatGiongNoi("Mời quý cử tri phát biểu", function() {
+        try {
+          finalTranscript = txtResult.value.trim();
+          if (finalTranscript !== '' && !finalTranscript.endsWith('.')) {
+            finalTranscript += '. ';
+          }
+          recognition.start();
+        } catch (err) {
+          recognition.stop();
+          setTimeout(() => { recognition.start(); }, 200);
         }
-        txtStatus.innerText = "Đang mở Micro...";
-        txtStatus.style.color = "#0d6efd";
-        recognition.start();
-      } catch (err) {
-        recognition.stop();
-        setTimeout(() => { recognition.start(); }, 200);
-      }
+      });
+
     } else {
       isRecording = false;
       recognition.stop();
@@ -202,7 +226,7 @@
   txtResult.oninput = capNhatDemKyTu;
 
   function xoaNoiDung() {
-    if (confirm("Bà con có muốn xóa hết chữ để nói lại từ đầu không?")) {
+    if (confirm("Quý cử tri có muốn xóa hết chữ để nói lại từ đầu không?")) {
       finalTranscript = '';
       txtResult.value = '';
       capNhatDemKyTu();
@@ -211,11 +235,11 @@
     }
   }
 
-  // PHƯƠNG THỨC GỬI DỰA TRÊN FORM DATA CHỐNG LỖI CỰC TỐT
   function guiPhanAnh() {
     const val = txtResult.value.trim();
     if (!val) {
-      alert("Chưa có nội dung! Bà con vui lòng chạm nút Micro màu đỏ để trình bày trước.");
+      phatGiongNoi("Chưa có nội dung, xin quý cử tri bấm nút micro để nói trước");
+      alert("Chưa có nội dung! Quý cử tri vui lòng chạm nút Micro màu đỏ để trình bày trước.");
       return;
     }
 
@@ -223,7 +247,13 @@
     btnSend.disabled = true;
     btnSend.innerText = "⏳ ĐANG GỬI PHẢN ÁNH...";
 
-    // Tạo Form ngầm để gửi thẳng
+    // Tắt Micro nếu đang bật
+    if (isRecording) {
+      isRecording = false;
+      recognition.stop();
+      btnMic.classList.remove('active');
+    }
+
     const formData = new URLSearchParams();
     formData.append('content', val);
 
@@ -234,25 +264,27 @@
       body: formData.toString()
     })
     .then(() => {
-      alert("Cảm ơn bà con! Phản ánh đã được gửi thành công về Ban Điều hành Ấp Hưng Phú.");
+      // Phát loa phản hồi và hiện thông báo
+      phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị");
+      
+      alert("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị!");
+      
       finalTranscript = '';
       txtResult.value = "";
       capNhatDemKyTu();
-      if (isRecording) {
-        isRecording = false;
-        recognition.stop();
-        btnMic.classList.remove('active');
-      }
       btnSend.disabled = false;
       btnSend.innerText = "GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP";
+      txtStatus.innerText = "Chạm vào Micro màu đỏ để BẮT ĐẦU nói";
     })
     .catch(error => {
-      alert("Đã gửi phản ánh về hệ thống!");
+      phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị");
+      alert("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị!");
       finalTranscript = '';
       txtResult.value = "";
       capNhatDemKyTu();
       btnSend.disabled = false;
       btnSend.innerText = "GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP";
+      txtStatus.innerText = "Chạm vào Micro màu đỏ để BẮT ĐẦU nói";
     });
   }
 </script>
