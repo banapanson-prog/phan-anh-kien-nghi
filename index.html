@@ -86,6 +86,7 @@
   let isRecording = false;
   let lastClickTime = 0;
   let finalTranscript = '';
+  let lastSpeechTime = 0;
 
   const btnMic = document.getElementById('btnMic');
   const txtStatus = document.getElementById('txtStatus');
@@ -95,10 +96,10 @@
   // HÀM PHÁT GIỌNG NÓI TIẾNG VIỆT
   function phatGiongNoi(text, callback) {
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Dừng tất cả âm thanh cũ
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'vi-VN';
-      utterance.rate = 0.9; // Tốc độ đọc chậm rãi, rõ ràng
+      utterance.rate = 0.9;
 
       let hasRunCallback = false;
       const safeCallback = () => {
@@ -110,8 +111,6 @@
 
       utterance.onend = safeCallback;
       utterance.onerror = safeCallback;
-
-      // Giới hạn thời gian tối đa để đảm bảo luôn chạy callback nếu trình duyệt không báo sự kiện onend
       setTimeout(safeCallback, 3500);
 
       window.speechSynthesis.speak(utterance);
@@ -120,10 +119,49 @@
     }
   }
 
-  function chuanHoaVanBan(text) {
+  // BỘ THUẬT TOÁN CHUẨN HÓA VĂN BẢN THÔNG MINH (NGẮT DẤU CHẤM, DẤU PHẨY, VIẾT HOA)
+  function chuanHoaVanBanThongMinh(text) {
     if (!text) return '';
-    text = text.charAt(0).toUpperCase() + text.slice(1);
-    return text.replace(/\s+/g, ' ');
+
+    let formatted = text.trim();
+
+    // 1. Chèn dấu phẩy trước các từ nối thông dụng nếu chưa có dấu
+    const linkWords = ['nhưng', 'tuy nhiên', 'vì vậy', 'cho nên', 'do đó', 'ngoài ra', 'đồng thời', 'mặc dù'];
+    linkWords.forEach(word => {
+      const regex = new RegExp(`(?<=[^,.!?\\s])\\s+(${word})\\b`, 'gi');
+      formatted = formatted.replace(regex, ', $1');
+    });
+
+    // 2. Tự động viết hoa các từ danh từ riêng/hành chính
+    const properNouns = {
+      'ấp hưng phú': 'Ấp Hưng Phú',
+      'ấp': 'Ấp',
+      'xã': 'Xã',
+      'huyện': 'Huyện',
+      'tỉnh': 'Tỉnh',
+      'ủy ban': 'Ủy ban',
+      'ban điều hành': 'Ban điều hành',
+      'cử tri': 'cử tri'
+    };
+    Object.keys(properNouns).forEach(key => {
+      const regex = new RegExp(`\\b${key}\\b`, 'gi');
+      formatted = formatted.replace(regex, properNouns[key]);
+    });
+
+    // 3. Chuẩn hóa khoảng trắng quanh dấu chấm, dấu phẩy
+    formatted = formatted
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/\s*\.\s*/g, '. ')
+      .replace(/\s+/g, ' ');
+
+    // 4. Viết hoa chữ cái đầu tiên sau mỗi dấu chấm và đầu văn bản
+    formatted = formatted.replace(/(^\s*|[.!?]\s+)([a-zàáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ])/g, 
+      function(match, p1, p2) {
+        return p1 + p2.toUpperCase();
+      }
+    );
+
+    return formatted;
   }
 
   function capNhatDemKyTu() {
@@ -150,22 +188,37 @@
         btnMic.classList.add('active');
         txtStatus.innerText = "🔴 ĐANG NGHE CỬ TRI TRÌNH BÀY... (Chạm Micro để DỪNG)";
         txtStatus.style.color = "#198754";
+        lastSpeechTime = new Date().getTime();
       };
 
       recognition.onresult = function(event) {
+        const currentTime = new Date().getTime();
+        const pauseDuration = (currentTime - lastSpeechTime) / 1000; // Thời gian tạm dừng (giây)
+        lastSpeechTime = currentTime;
+
         let interimTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript;
+          let transcript = event.results[i][0].transcript;
+
           if (event.results[i].isFinal) {
-            finalTranscript += transcript.trim() + '. ';
+            transcript = transcript.trim();
+            
+            // Xử lý chèn dấu chấm/phẩy dựa trên khoảng dừng giọng nói
+            if (pauseDuration > 2.5 && finalTranscript.length > 0 && !/[.!?]\s*$/.test(finalTranscript)) {
+              finalTranscript += '. ';
+            } else if (pauseDuration > 1.2 && finalTranscript.length > 0 && !/[,.!?]\s*$/.test(finalTranscript)) {               finalTranscript += ', ';             } else if (finalTranscript.length > 0 && !/\s$/.test(finalTranscript)) {
+              finalTranscript += ' ';
+            }
+
+            finalTranscript += transcript;
           } else {
             interimTranscript += transcript;
           }
         }
 
-        const fullText = finalTranscript + interimTranscript;
-        txtResult.value = chuanHoaVanBan(fullText);
+        const fullText = finalTranscript + (interimTranscript ? ' ' + interimTranscript : '');
+        txtResult.value = chuanHoaVanBanThongMinh(fullText);
         txtResult.scrollTop = txtResult.scrollHeight;
         capNhatDemKyTu();
       };
@@ -210,13 +263,9 @@
       txtStatus.innerText = "🔊 Mời quý cử tri phát biểu...";
       txtStatus.style.color = "#0d6efd";
 
-      // Phát loa trước, sau đó mới bật Micro thu âm
       phatGiongNoi("Mời quý cử tri phát biểu", function() {
         try {
           finalTranscript = txtResult.value.trim();
-          if (finalTranscript !== '' && !finalTranscript.endsWith('.')) {
-            finalTranscript += '. ';
-          }
           recognition.start();
         } catch (err) {
           recognition.stop();
@@ -232,7 +281,10 @@
   }
 
   btnMic.onclick = handleMicToggle;
-  txtResult.oninput = capNhatDemKyTu;
+  txtResult.oninput = function() {
+    finalTranscript = txtResult.value;
+    capNhatDemKyTu();
+  };
 
   function xoaNoiDung() {
     if (confirm("Quý cử tri có muốn xóa hết chữ để nói lại từ đầu không?")) {
@@ -257,7 +309,6 @@
     btnSend.disabled = true;
     btnSend.innerText = "⏳ ĐANG GỬI PHẢN ÁNH...";
 
-    // Tắt Micro nếu đang thu âm
     if (isRecording) {
       isRecording = false;
       recognition.stop();
@@ -267,7 +318,6 @@
     const formData = new URLSearchParams();
     formData.append('content', val);
 
-    // Gửi dữ liệu về Google Sheets
     fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -275,11 +325,9 @@
       body: formData.toString()
     });
 
-    // Cập nhật trạng thái chữ trên màn hình ngay lập tức
     txtStatus.innerText = "✅ Đã gửi phản ánh thành công!";
     txtStatus.style.color = "#198754";
 
-    // PHÁT ÂM THANH CẢM ƠN TRƯỚC -> NÓI XONG MỚI BẬT KHUNG CẢNH BÁO ALERT
     phatGiongNoi("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị", function() {
       alert("Chân thành cảm ơn quý cử tri đã gửi phản ánh, kiến nghị!");
       
