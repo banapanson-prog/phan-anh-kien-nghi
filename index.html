@@ -11,7 +11,6 @@
     .title { color: #0d6efd; font-size: 19px; font-weight: bold; margin-bottom: 4px; }
     .sub { font-size: 13px; color: #6c757d; margin-bottom: 15px; }
     
-    /* Nút Micro được thiết kế tối ưu cho Cảm ứng */
     .btn-mic { 
       width: 100px; 
       height: 100px; 
@@ -46,28 +45,28 @@
   <div class="title">HÒM THƯ GÓP Ý GIỌNG NÓI</div>
   <div class="sub">Ban Điều hành Ấp Hưng Phú tiếp nhận 24/7</div>
 
-  <button id="btnMic" class="btn-mic">🎙️</button>
+  <button id="btnMic" class="btn-mic" type="button">🎙️</button>
   <div id="txtStatus" class="status">Chạm vào Micro màu đỏ để BẮT ĐẦU nói</div>
 
   <textarea id="txtResult" class="txt-area" placeholder="Nội dung lời nói sẽ tự động chuyển thành chữ ở đây..."></textarea>
 
-  <button class="btn-send" onclick="guiPhanAnh()">GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP</button>
+  <button class="btn-send" type="button" onclick="guiPhanAnh()">GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP</button>
 </div>
 
 <script>
   let recognition = null;
   let isRecording = false;
+  let lastClickTime = 0; // Biến chống click đúp
 
   const btnMic = document.getElementById('btnMic');
   const txtStatus = document.getElementById('txtStatus');
   const txtResult = document.getElementById('txtResult');
 
-  // Khởi tạo nhận diện giọng nói
-  function setupSpeech() {
+  function initSpeech() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      txtStatus.innerText = "❌ Trình duyệt không hỗ trợ thu âm! Vui lòng dùng Chrome hoặc Safari.";
+      txtStatus.innerText = "❌ Trình duyệt không hỗ trợ! Vui lòng dùng Chrome hoặc Safari.";
       txtStatus.style.color = "#dc3545";
       return false;
     }
@@ -81,7 +80,7 @@
       recognition.onstart = function() {
         isRecording = true;
         btnMic.classList.add('active');
-        txtStatus.innerText = "🔴 ĐANG THU ÂM... (Chạm Micro lần nữa để DỪNG)";
+        txtStatus.innerText = "🔴 ĐANG NGHE BÀ CON NÓI... (Chạm Micro để DỪNG)";
         txtStatus.style.color = "#198754";
       };
 
@@ -90,55 +89,70 @@
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           text += event.results[i][0].transcript;
         }
-        txtResult.value = text;
+        if (text.trim() !== "") {
+          txtResult.value = text;
+        }
       };
 
       recognition.onerror = function(event) {
         isRecording = false;
         btnMic.classList.remove('active');
         if (event.error === 'not-allowed') {
-          txtStatus.innerText = "❌ Bị chặn Micro! Hãy bấm 'Cho phép' trên trình duyệt điện thoại.";
+          txtStatus.innerText = "❌ Bị chặn Micro! Hãy chọn 'Cho phép' khi trình duyệt hỏi.";
+        } else if (event.error === 'no-speech') {
+          txtStatus.innerText = "Chưa nghe rõ giọng nói. Bà con vui lòng chạm lại Micro để nói.";
         } else {
-          txtStatus.innerText = "Lỗi thu âm: " + event.error;
+          txtStatus.innerText = "Lỗi Micro: " + event.error;
         }
         txtStatus.style.color = "#dc3545";
       };
 
       recognition.onend = function() {
-        if (isRecording) {
-          try { recognition.start(); } catch(e) {}
-        } else {
+        // Chỉ hiển thị đã xong khi người dùng chủ động tắt
+        if (!isRecording) {
           btnMic.classList.remove('active');
+          if (txtResult.value.trim() !== "") {
+            txtStatus.innerText = "✅ Đã ghi xong! Kiểm tra lại chữ và bấm Gửi.";
+            txtStatus.style.color = "#0d6efd";
+          } else {
+            txtStatus.innerText = "Chưa nhận diện được giọng nói. Vui lòng bấm Micro nói lại.";
+            txtStatus.style.color = "#dc3545";
+          }
         }
       };
     }
     return true;
   }
 
-  // Hàm xử lý khi bấm/chạm nút Micro
   function handleMicToggle(e) {
     if (e) e.preventDefault();
     
-    if (!setupSpeech()) return;
+    // Chống kích hoạt đúp trong vòng 500ms
+    const now = new Date().getTime();
+    if (now - lastClickTime < 500) return;
+    lastClickTime = now;
+
+    if (!initSpeech()) return;
 
     if (!isRecording) {
       try {
+        txtStatus.innerText = "Đang mở Micro...";
+        txtStatus.style.color = "#0d6efd";
         recognition.start();
       } catch (err) {
-        txtStatus.innerText = "Đang kết nối Micro, vui lòng chạm lại...";
+        // Nếu trình duyệt đang bận, thử ngắt và bật lại
+        recognition.stop();
+        setTimeout(() => { recognition.start(); }, 200);
       }
     } else {
       isRecording = false;
       recognition.stop();
       btnMic.classList.remove('active');
-      txtStatus.innerText = "✅ Đã ghi xong! Kiểm tra lại chữ và bấm Gửi.";
-      txtStatus.style.color = "#0d6efd";
     }
   }
 
-  // Gắn sự kiện bắt nhạy cho cả Điện thoại (Touch) và Máy tính (Click)
-  btnMic.addEventListener('touchstart', handleMicToggle, { passive: false });
-  btnMic.addEventListener('click', handleMicToggle);
+  // Chỉ gắn 1 sự kiện onclick duy nhất để tránh bị xung đột sự kiện cảm ứng
+  btnMic.onclick = handleMicToggle;
 
   function guiPhanAnh() {
     const val = txtResult.value.trim();
@@ -148,7 +162,11 @@
     }
     alert("Cảm ơn bà con! Phản ánh đã được ghi nhận thành công:\n\n\"" + val + "\"");
     txtResult.value = "";
-    if (isRecording) handleMicToggle();
+    if (isRecording) {
+      isRecording = false;
+      recognition.stop();
+      btnMic.classList.remove('active');
+    }
   }
 </script>
 
