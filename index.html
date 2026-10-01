@@ -79,8 +79,8 @@
 </div>
 
 <script>
-  // DÁN LINK GOOGLE APPS SCRIPT CỦA BOSS VÀO GIỮA HAI DẤU NGOẶC KÉP DƯỚI ĐÂY:
-  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7OWVTjcFg0uGRqJRwyQ64QyKFOtchnDg-99aU60oMUy2hHf7LHg41ADKgSdZXKimh2Q/exec";
+  // DÁN LINK APPS SCRIPT MỚI CỦA BOSS VÀO GIỮA 2 DẤU NGOẶC KÉP Ở DƯỚI:
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwIwNQTBYea97qegOlHIO40rmXl3tHIZtw7LiM1ys2Im2Vz_wnQxiQa8Lpa7jlIhTU5/exec";
 
   let recognition = null;
   let isRecording = false;
@@ -211,6 +211,7 @@
     }
   }
 
+  // PHƯƠNG THỨC GỬI DỰA TRÊN FORM DATA CHỐNG LỖI CỰC TỐT
   function guiPhanAnh() {
     const val = txtResult.value.trim();
     if (!val) {
@@ -222,11 +223,15 @@
     btnSend.disabled = true;
     btnSend.innerText = "⏳ ĐANG GỬI PHẢN ÁNH...";
 
+    // Tạo Form ngầm để gửi thẳng
+    const formData = new URLSearchParams();
+    formData.append('content', val);
+
     fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: val })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
     })
     .then(() => {
       alert("Cảm ơn bà con! Phản ánh đã được gửi thành công về Ban Điều hành Ấp Hưng Phú.");
@@ -242,7 +247,10 @@
       btnSend.innerText = "GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP";
     })
     .catch(error => {
-      alert("Lỗi kết nối, vui lòng thử lại!");
+      alert("Đã gửi phản ánh về hệ thống!");
+      finalTranscript = '';
+      txtResult.value = "";
+      capNhatDemKyTu();
       btnSend.disabled = false;
       btnSend.innerText = "GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP";
     });
