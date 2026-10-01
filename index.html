@@ -6,21 +6,23 @@
   <title>Hòm Thư Giọng Nói - Ấp Hưng Phú</title>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background: #f0f2f5; }
-    .card { background: white; padding: 20px; border-radius: 16px; border: 2px solid #0d6efd; text-align: center; max-width: 420px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .title { color: #0d6efd; font-size: 19px; font-weight: bold; margin-bottom: 4px; }
-    .sub { font-size: 13px; color: #6c757d; margin-bottom: 15px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 12px; background: #f0f2f5; }
+    
+    /* Mở rộng chiều rộng khung card lên 480px */
+    .card { background: white; padding: 20px; border-radius: 16px; border: 2px solid #0d6efd; text-align: center; max-width: 480px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .title { color: #0d6efd; font-size: 20px; font-weight: bold; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #6c757d; margin-bottom: 12px; }
     
     .btn-mic { 
-      width: 95px; 
-      height: 95px; 
+      width: 90px; 
+      height: 90px; 
       border-radius: 50%; 
       background: #dc3545; 
       color: white; 
       border: none; 
-      font-size: 40px; 
+      font-size: 38px; 
       cursor: pointer; 
-      margin: 10px auto; 
+      margin: 5px auto; 
       outline: none; 
       display: flex;
       align-items: center;
@@ -34,11 +36,29 @@
       box-shadow: 0 0 22px rgba(25,135,84,0.7) !important; 
     }
     
-    .status { font-weight: bold; font-size: 14px; color: #0d6efd; margin: 12px 0; min-height: 24px; line-height: 1.4; }
-    .txt-area { width: 100%; height: 130px; padding: 12px; border: 1px solid #ced4da; border-radius: 8px; font-size: 15px; margin-top: 5px; resize: none; line-height: 1.4; }
+    .status { font-weight: bold; font-size: 14px; color: #0d6efd; margin: 10px 0; min-height: 22px; line-height: 1.4; }
     
-    .btn-clear { background: #6c757d; color: white; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; margin-top: 6px; float: right; cursor: pointer; }
-    .btn-send { width: 100%; padding: 14px; background: #0d6efd; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; clear: both; }
+    /* KHUNG HIỂN THỊ NỘI DUNG MỞ RỘNG (220px, CỠ CHỮ 16px) */
+    .txt-area { 
+      width: 100%; 
+      height: 220px; 
+      padding: 14px; 
+      border: 2px solid #ced4da; 
+      border-radius: 10px; 
+      font-size: 16px; 
+      line-height: 1.5; 
+      margin-top: 5px; 
+      resize: vertical; 
+      background-color: #fafafa;
+      color: #212529;
+    }
+    .txt-area:focus { border-color: #0d6efd; outline: none; background-color: #fff; }
+    
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .btn-clear { background: #dc3545; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .note-length { font-size: 12px; color: #6c757d; }
+    
+    .btn-send { width: 100%; padding: 15px; background: #0d6efd; color: white; border: none; border-radius: 10px; font-size: 17px; font-weight: bold; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 10px rgba(13,110,253,0.3); }
   </style>
 </head>
 <body>
@@ -50,8 +70,12 @@
   <button id="btnMic" class="btn-mic" type="button">🎙️</button>
   <div id="txtStatus" class="status">Chạm vào Micro màu đỏ để BẮT ĐẦU nói</div>
 
-  <textarea id="txtResult" class="txt-area" placeholder="Nội dung lời nói sẽ tự động chuyển và NỐI TIẾP thành văn bản ở đây..."></textarea>
-  <button type="button" class="btn-clear" onclick="xoaNoiDung()">🗑️ Xóa làm lại</button>
+  <textarea id="txtResult" class="txt-area" placeholder="Nội dung trình bày của bà con sẽ tự động chuyển thành văn bản và hiển thị đầy đủ ở đây..."></textarea>
+  
+  <div class="toolbar">
+    <span id="txtCount" class="note-length">Đã nhập: 0 ký tự</span>
+    <button type="button" class="btn-clear" onclick="xoaNoiDung()">🗑️ Xóa làm lại</button>
+  </div>
 
   <button class="btn-send" type="button" onclick="guiPhanAnh()">GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP</button>
 </div>
@@ -60,25 +84,21 @@
   let recognition = null;
   let isRecording = false;
   let lastClickTime = 0;
-  
-  // Biến lưu trữ toàn bộ văn bản đã cố định (chống ghi đè)
   let finalTranscript = '';
 
   const btnMic = document.getElementById('btnMic');
   const txtStatus = document.getElementById('txtStatus');
   const txtResult = document.getElementById('txtResult');
+  const txtCount = document.getElementById('txtCount');
 
-  // Hàm tự động chuẩn hóa văn bản thông minh (Xóa từ thừa, viết hoa đầu câu)
   function chuanHoaVanBan(text) {
     if (!text) return '';
-    
-    // Viết hoa chữ cái đầu tiên
     text = text.charAt(0).toUpperCase() + text.slice(1);
-    
-    // Chuẩn hóa dấu câu khoảng trắng
-    text = text.replace(/\s+/g, ' ');
-    
-    return text;
+    return text.replace(/\s+/g, ' ');
+  }
+
+  function capNhatDemKyTu() {
+    txtCount.innerText = "Đã nhập: " + txtResult.value.length + " ký tự";
   }
 
   function initSpeech() {
@@ -93,13 +113,13 @@
     if (!recognition) {
       recognition = new SpeechRecognition();
       recognition.lang = 'vi-VN';
-      recognition.continuous = true;     // Giữ micro luôn lắng nghe
-      recognition.interimResults = true; // Hiển thị câu đang nói tạm thời
+      recognition.continuous = true;
+      recognition.interimResults = true;
 
       recognition.onstart = function() {
         isRecording = true;
         btnMic.classList.add('active');
-        txtStatus.innerText = "🔴 ĐANG NGHE BÀ CON NÓI... (Chạm Micro để DỪNG)";
+        txtStatus.innerText = "🔴 ĐANG NGHE BÀ CON TRÌNH BÀY... (Chạm Micro để DỪNG)";
         txtStatus.style.color = "#198754";
       };
 
@@ -109,24 +129,22 @@
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            // Nếu câu đã nói xong -> Nối tiếp vào văn bản chính và thêm dấu chấm
             finalTranscript += transcript.trim() + '. ';
           } else {
-            // Câu đang nói dở -> Hiện tạm thời phía sau
             interimTranscript += transcript;
           }
         }
 
-        // Cập nhật lên màn hình: Văn bản cố định + Câu đang nói dở
         const fullText = finalTranscript + interimTranscript;
         txtResult.value = chuanHoaVanBan(fullText);
+        
+        // Tự động cuộn xuống dòng mới nhất khi bà con nói dài
+        txtResult.scrollTop = txtResult.scrollHeight;
+        capNhatDemKyTu();
       };
 
       recognition.onerror = function(event) {
-        if (event.error === 'no-speech') {
-          // Khi bà con dừng nói lâu, không coi là lỗi, chỉ giữ trạng thái
-          return;
-        }
+        if (event.error === 'no-speech') return;
         isRecording = false;
         btnMic.classList.remove('active');
         if (event.error === 'not-allowed') {
@@ -138,15 +156,12 @@
       };
 
       recognition.onend = function() {
-        // Tự động bật lại Micro nếu người dùng chưa bấm Dừng (giúp nói dài không bị ngắt)
         if (isRecording) {
-          try {
-            recognition.start();
-          } catch(e) {}
+          try { recognition.start(); } catch(e) {}
         } else {
           btnMic.classList.remove('active');
           if (txtResult.value.trim() !== "") {
-            txtStatus.innerText = "✅ Đã ghi xong! Bà con kiểm tra lại chữ và bấm Gửi.";
+            txtStatus.innerText = "✅ Đã ghi xong! Bà con kiểm tra nội dung và bấm Gửi.";
             txtStatus.style.color = "#0d6efd";
           }
         }
@@ -166,12 +181,10 @@
 
     if (!isRecording) {
       try {
-        // Lấy lại nội dung cũ nếu bà con muốn nói nối tiếp tiếp
         finalTranscript = txtResult.value.trim();
         if (finalTranscript !== '' && !finalTranscript.endsWith('.')) {
           finalTranscript += '. ';
         }
-        
         txtStatus.innerText = "Đang mở Micro...";
         txtStatus.style.color = "#0d6efd";
         recognition.start();
@@ -187,12 +200,14 @@
   }
 
   btnMic.onclick = handleMicToggle;
+  txtResult.oninput = capNhatDemKyTu;
 
   function xoaNoiDung() {
     if (confirm("Bà con có muốn xóa hết chữ để nói lại từ đầu không?")) {
       finalTranscript = '';
       txtResult.value = '';
-      txtStatus.innerText = "Đã xóa. Chạm vào Micro màu đỏ để BẮT ĐẦU nói lại.";
+      capNhatDemKyTu();
+      txtStatus.innerText = "Đã xóa. Chạm vào Micro màu đỏ để BẮT ĐẦU trình bày lại.";
       txtStatus.style.color = "#0d6efd";
     }
   }
@@ -200,14 +215,14 @@
   function guiPhanAnh() {
     const val = txtResult.value.trim();
     if (!val) {
-      alert("Chưa có nội dung! Bà con vui lòng chạm nút Micro màu đỏ để nói trước.");
+      alert("Chưa có nội dung! Bà con vui lòng chạm nút Micro màu đỏ để trình bày trước.");
       return;
     }
     alert("Cảm ơn bà con! Phản ánh đã được ghi nhận thành công:\n\n\"" + val + "\"");
     
-    // Reset sau khi gửi
     finalTranscript = '';
     txtResult.value = "";
+    capNhatDemKyTu();
     if (isRecording) {
       isRecording = false;
       recognition.stop();
