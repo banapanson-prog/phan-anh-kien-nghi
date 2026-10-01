@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hòm Thư Giọng Nói - Ấp Hưng Phú</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 15px; background: #f0f2f5; }
+    .box { background: white; padding: 25px 20px; border-radius: 16px; border: 2px solid #0d6efd; text-align: center; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .title { color: #0d6efd; font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+    .sub { font-size: 13px; color: #6c757d; margin-bottom: 15px; }
+    .btn-mic { width: 95px; height: 95px; border-radius: 50%; background: #dc3545; color: white; border: none; font-size: 42px; cursor: pointer; margin: 10px 0; outline: none; box-shadow: 0 4px 12px rgba(220,53,69,0.4); transition: all 0.2s; }
+    .btn-mic.recording { background: #198754 !important; transform: scale(1.1); box-shadow: 0 0 20px rgba(25,135,84,0.7) !important; }
+    .status { font-weight: bold; font-size: 14px; color: #0d6efd; margin: 12px 0; min-height: 24px; }
+    .txt-area { width: 100%; height: 110px; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; box-sizing: border-box; font-size: 15px; margin-top: 10px; }
+    .btn-send { width: 100%; padding: 14px; background: #0d6efd; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <div class="title">HÒM THƯ GÓP Ý GIỌNG NÓI</div>
+  <div class="sub">Ban Điều hành Ấp Hưng Phú tiếp nhận 24/7</div>
+
+  <button id="btnMic" class="btn-mic" onclick="toggleMic()">🎙️</button>
+  <div id="txtStatus" class="status">Chạm vào Micro màu đỏ để bắt đầu nói</div>
+
+  <textarea id="txtResult" class="txt-area" placeholder="Nội dung lời nói của bà con sẽ tự động biến thành chữ ở đây..."></textarea>
+
+  <button class="btn-send" onclick="guiPhanAnh()">GỬI PHẢN ÁNH THẲNG VỀ BAN ẤP</button>
+</div>
+
+<script>
+  let recognition;
+  let isRecording = false;
+
+  const btnMic = document.getElementById('btnMic');
+  const txtStatus = document.getElementById('txtStatus');
+  const txtResult = document.getElementById('txtResult');
+
+  function initSpeech() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      txtStatus.innerText = "Trình duyệt chưa hỗ trợ! Hãy mở bằng Chrome hoặc Safari.";
+      txtStatus.style.color = "#dc3545";
+      return false;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'vi-VN';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = function() {
+      isRecording = true;
+      btnMic.classList.add('recording');
+      txtStatus.innerText = "🔴 Đang nghe bà con nói... (Bấm Micro lần nữa để DỪNG)";
+      txtStatus.style.color = "#198754";
+    };
+
+    recognition.onresult = function(event) {
+      let text = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        text += event.results[i][0].transcript;
+      }
+      txtResult.value = text;
+    };
+
+    recognition.onerror = function(event) {
+      txtStatus.innerText = "Chưa cấp quyền Micro! Vui lòng bấm 'Cho phép' trên điện thoại.";
+      txtStatus.style.color = "#dc3545";
+      stopMic();
+    };
+
+    recognition.onend = function() {
+      if (isRecording) {
+        try { recognition.start(); } catch(e) {}
+      }
+    };
+    return true;
+  }
+
+  function toggleMic() {
+    if (!recognition) {
+      if (!initSpeech()) return;
+    }
+    if (!isRecording) {
+      try {
+        recognition.start();
+      } catch(e) {
+        txtStatus.innerText = "Lỗi khởi động Micro, vui lòng thử lại!";
+      }
+    } else {
+      stopMic();
+    }
+  }
+
+  function stopMic() {
+    isRecording = false;
+    if (recognition) recognition.stop();
+    btnMic.classList.remove('recording');
+    txtStatus.innerText = "✅ Đã ghi xong! Kiểm tra lại chữ và bấm Gửi.";
+    txtStatus.style.color = "#0d6efd";
+  }
+
+  function guiPhanAnh() {
+    const val = txtResult.value.trim();
+    if (!val) {
+      alert("Chưa có nội dung! Bà con vui lòng chạm nút Micro màu đỏ để nói trước.");
+      return;
+    }
+    alert("Cảm ơn bà con! Phản ánh đã được ghi nhận thành công:\n\n\"" + val + "\"");
+    txtResult.value = "";
+    stopMic();
+  }
+</script>
+
+</body>
+</html>
